@@ -198,10 +198,15 @@ void TrayIcon::loadSettings()
 bool TrayIcon::applyCaptureHotkey(const QKeySequence &sequence)
 {
 #ifdef Q_OS_WIN
-    unregisterHotkey();
     if (!registerHotkey(sequence)) {
         return false;
     }
+
+    unregisterHotkey();
+    unsigned int modifiers = 0;
+    unsigned int virtualKey = 0;
+    parseHotkey(sequence, modifiers, virtualKey);
+    RegisterHotKey(nullptr, hotkeyId, modifiers, virtualKey);
 #else
     Q_UNUSED(sequence);
 #endif
@@ -254,7 +259,13 @@ bool TrayIcon::registerHotkey(const QKeySequence &sequence)
         return false;
     }
 
-    return RegisterHotKey(nullptr, hotkeyId, modifiers, virtualKey) != 0;
+    int testId = hotkeyId + 1;
+    if (RegisterHotKey(nullptr, testId, modifiers, virtualKey)) {
+        UnregisterHotKey(nullptr, testId);
+        return true;
+    }
+
+    return false;
 }
 
 void TrayIcon::unregisterHotkey()

@@ -25,6 +25,7 @@ add_executable(SnipLite
 target_link_libraries(SnipLite PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Gui
+    dwmapi
 )
 
 if(WIN32)
