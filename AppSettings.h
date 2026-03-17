@@ -23,7 +23,7 @@ inline const QString kDockStripHeight = QStringLiteral("dock/stripHeight");
 inline const QString kDockStripBorderRadius = QStringLiteral("dock/stripBorderRadius");
 inline const QString kDockStripColorIndex = QStringLiteral("dock/stripColorIndex");
 inline const QString kThemeMode = QStringLiteral("ui/themeMode");
-inline const QString kGitHubUrl = QStringLiteral("https://github.com/DoubleL1ng/Snaplite");
+inline const QString kGitHubUrl = QStringLiteral("https://github.com/DoubleL1ng/Words-Bin");
 
 inline const QString kDefaultCaptureHotkey = QStringLiteral("Ctrl+Shift+A");
 inline const QString kDefaultSaveFormat = QStringLiteral("PNG");

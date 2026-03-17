@@ -1,10 +1,10 @@
-# Words-Bin（桶） - 轻量级截图与剪贴板工具
+# Words-Bin（剪贴桶） - 轻量级截图与剪贴板工具
 
 English | [中文](README.md)
 
 ## 项目简介
 
-Words-Bin（中文名：桶）是一个运行在 Windows 上的轻量级截图与剪贴板工具，提供高效、直观的截图体验。支持区域截图、全屏截图，集成系统托盘、热键、剪贴板历史等功能。
+Words-Bin（中文名：剪贴桶）是一个运行在 Windows 上的轻量级截图与剪贴板工具，提供高效、直观的截图体验。支持区域截图、全屏截图，集成系统托盘、热键、剪贴板历史等功能。
 
 ## ? 主要功能
 
@@ -30,7 +30,7 @@ Words-Bin（中文名：桶）是一个运行在 Windows 上的轻量级截图与剪贴板工具，提供高效
 
 1. **克隆仓库**
    ```bash
-   git clone https://github.com/DoubleL1ng/Snaplite.git Words-Bin
+   git clone https://github.com/DoubleL1ng/Words-Bin.git Words-Bin
    cd Words-Bin
    ```
 
@@ -100,7 +100,7 @@ Words-Bin/
 - **语言** — C++17
 - **构建系统** — CMake
 - **平台** — Windows（使用系统 API 实现全局热键）
-- **产品名** — Words-Bin（中文名：桶）
+- **产品名** — Words-Bin（中文名：剪贴桶）
 
 ### 核心模块
 
@@ -140,12 +140,9 @@ Words-Bin/
 
 ## ? 反馈
 
-如有问题、建议或功能请求，欢迎在 [Issues](https://github.com/DoubleL1ng/Snaplite/issues) 中提出。
-
-当前 GitHub 仓库地址仍为旧地址，待线上仓库实际改名后可再同步切换：
-https://github.com/DoubleL1ng/Snaplite
+如有问题、建议或功能请求，欢迎在 [Issues](https://github.com/DoubleL1ng/Words-Bin/issues) 中提出。
 
 ---
 
 **维护者** — DoubleL1ng  
-**项目链接** — https://github.com/DoubleL1ng/Snaplite
+**项目链接** — https://github.com/DoubleL1ng/Words-Bin
