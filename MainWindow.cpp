@@ -198,7 +198,7 @@ void MainWindow::setupUI()
     themeToggleButton = new QToolButton(this);
     themeToggleButton->setObjectName("topActionButton");
     themeToggleButton->setText(currentThemeMode == QStringLiteral("dark") ? QStringLiteral("?") : QStringLiteral("?"));
-    themeToggleButton->setToolTip(currentThemeMode == QStringLiteral("dark") ? QStringLiteral("浅色") : QStringLiteral("深色"));
+    themeToggleButton->setToolTip(currentThemeMode == QStringLiteral("dark") ? QStringLiteral("Light") : QStringLiteral("Dark"));
     themeToggleButton->setCursor(Qt::PointingHandCursor);
     connect(themeToggleButton, &QToolButton::clicked, this, &MainWindow::onToggleTheme);
 
@@ -652,7 +652,7 @@ void MainWindow::dockSidebar(bool animated)
                                  ? presetColors.at(colorIndex)
                                  : presetColors.first();
     
-    // 应用dock strip的样式（颜色和圆角）
+    // Apply dock strip style (color and border radius)
     centralWidget->setStyleSheet(
         QString("#centralWidget { background-color: %1; border: 1.5px solid #404040; border-radius: %2px; }")
             .arg(stripColor)
@@ -819,13 +819,13 @@ void MainWindow::applyTheme(const QString &mode)
                                             ? AppSettings::getLightThemePalette()
                                             : AppSettings::getDarkThemePalette();
     
-    // 更新主题按钮的文字和工具提示
+    // Update theme button text and tooltip
     if (themeToggleButton) {
         themeToggleButton->setText(mode == QStringLiteral("dark") ? QStringLiteral("?") : QStringLiteral("?"));
-        themeToggleButton->setToolTip(mode == QStringLiteral("dark") ? QStringLiteral("浅色") : QStringLiteral("深色"));
+        themeToggleButton->setToolTip(mode == QStringLiteral("dark") ? QStringLiteral("Light") : QStringLiteral("Dark"));
     }
     
-    // 应用全局样式表
+    // Apply global stylesheet
     QString styleSheet = QString(
         "QMainWindow, QDialog { background-color: %1; color: %3; }"
         "QWidget { background-color: %1; color: %3; }"
