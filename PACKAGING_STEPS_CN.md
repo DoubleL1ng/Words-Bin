@@ -1,7 +1,7 @@
-# Silo 打包步骤（Qt Creator 新手版）
+# 侧影（Silo）打包步骤（Qt Creator 新手版）
 
 本文档目标：
-- 编译出 Release 版本的 Silo.exe
+- 编译出 Release 版本的侧影（Silo）可执行文件（Silo.exe）
 - 使用 windeployqt 补齐 Qt 运行库
 - 使用 Inno Setup 生成安装包 Setup.exe
 

@@ -23,8 +23,6 @@ namespace {
 #ifdef Q_OS_WIN
 constexpr auto kAutoStartRegPath = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 constexpr auto kAutoStartValueName = "Silo";
-constexpr auto kLegacyAutoStartValueNameWordsBin = "Words-Bin";
-constexpr auto kLegacyAutoStartValueName = "SnipLite";
 #endif
 } // namespace
 
@@ -113,7 +111,7 @@ void SettingsDialog::accept()
 
 void SettingsDialog::buildUi()
 {
-    setWindowTitle(QStringLiteral("\u8bbe\u7f6e - Words-Bin"));
+    setWindowTitle(QStringLiteral("\u8bbe\u7f6e - \u4fa7\u5f71"));
     setModal(true);
     resize(560, 520);
 
@@ -317,10 +315,7 @@ void SettingsDialog::loadCurrentSettings()
 
 #ifdef Q_OS_WIN
     QSettings bootSettings(QString::fromLatin1(kAutoStartRegPath), QSettings::NativeFormat);
-    autoStartCheck->setChecked(
-        bootSettings.contains(QString::fromLatin1(kAutoStartValueName)) ||
-        bootSettings.contains(QString::fromLatin1(kLegacyAutoStartValueNameWordsBin)) ||
-        bootSettings.contains(QString::fromLatin1(kLegacyAutoStartValueName)));
+    autoStartCheck->setChecked(bootSettings.contains(QString::fromLatin1(kAutoStartValueName)));
 #else
     autoStartCheck->setChecked(false);
 #endif

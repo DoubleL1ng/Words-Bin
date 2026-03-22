@@ -25,15 +25,13 @@ namespace {
 #ifdef Q_OS_WIN
 constexpr auto kAutoStartRegPath = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 constexpr auto kAutoStartValueName = "Silo";
-constexpr auto kLegacyAutoStartValueNameWordsBin = "Words-Bin";
-constexpr auto kLegacyAutoStartValueName = "SnipLite";
 #endif
 
 QIcon createAppTrayIcon()
 {
     const QStringList candidates = {
-        QStringLiteral(":/icons/applogo_512.png"),
-        QStringLiteral(":/icons/words-bin_logo.ico")
+        QStringLiteral(":/icons/silo_logo.png"),
+        QStringLiteral(":/icons/silo_logo.ico")
     };
 
     for (const QString &path : candidates) {
@@ -88,7 +86,7 @@ TrayIcon::TrayIcon(QObject *parent) : QObject(parent)
     loadSettings();
 
     trayIcon = new QSystemTrayIcon(icon, this);
-    trayIcon->setToolTip(QStringLiteral("Words-Bin"));
+    trayIcon->setToolTip(QStringLiteral("\u4fa7\u5f71"));
     createTrayMenu();
     connect(trayIcon, &QSystemTrayIcon::activated, this, &TrayIcon::onActivated);
     trayIcon->show();
@@ -159,12 +157,8 @@ void TrayIcon::showSettings()
     if (dialog.autoStartEnabled()) {
         QString appPath = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
         bootSettings.setValue(QString::fromLatin1(kAutoStartValueName), "\"" + appPath + "\"");
-        bootSettings.remove(QString::fromLatin1(kLegacyAutoStartValueNameWordsBin));
-        bootSettings.remove(QString::fromLatin1(kLegacyAutoStartValueName));
     } else {
         bootSettings.remove(QString::fromLatin1(kAutoStartValueName));
-        bootSettings.remove(QString::fromLatin1(kLegacyAutoStartValueNameWordsBin));
-        bootSettings.remove(QString::fromLatin1(kLegacyAutoStartValueName));
     }
 #endif
 

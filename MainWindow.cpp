@@ -24,6 +24,7 @@
 #include <QMenu>
 #include <QPainter>
 #include <QPainterPath>
+#include <QTextLayout>
 #include <QSignalBlocker>
 #include <QSettings>
 #include <QSvgRenderer>
@@ -123,15 +124,16 @@ QString controlsStyleSheet(const AppSettings::ThemePalette &palette)
         "QListWidget::item { background-color: %6; margin-bottom: 8px; border-radius: 6px; }"
         "QListWidget::item:selected { background-color: %1; border: 1px solid %4; }"
         "QLabel#historyTitleLabel { color: %2; font-family: 'YouYuan', 'Microsoft YaHei UI', 'Microsoft YaHei'; font-weight: 700; font-size: 20px; qproperty-alignment: AlignHCenter|AlignVCenter; }"
-        "QLabel#historyTimeLabel { background-color: %1; color: %4; border-radius: 4px; padding: 2px 6px; font-family: 'Microsoft YaHei'; font-weight: 700; font-size: 11px; }"
-        "QLabel#historyTextLabel { color: %7; font-family: 'Microsoft YaHei'; font-size: 13px; }")
+           "QLabel#historyTimeLabel { background-color: %8; color: %2; border: 1px solid %4; border-radius: 7px; padding: 3px 8px; font-family: 'Microsoft YaHei'; font-weight: 700; font-size: 11px; }"
+           "QLabel#historyTextLabel { font-family: '\u5B8B\u4F53', 'Times New Roman'; font-size: 12px; }")
         .arg(palette.buttonBackground,
              palette.text,
              palette.border,
              palette.buttonHover,
              palette.buttonPressed,
              palette.secondaryBackground,
-             palette.secondaryText);
+               palette.secondaryText,
+               palette.background);
 }
 
 QString expandedPanelStyleSheet(const AppSettings::ThemePalette &palette)
@@ -147,7 +149,7 @@ QString dockStripStyleSheet(const AppSettings::ThemePalette &palette,
                             int stripBorderRadius)
 {
     return QStringLiteral(
-               "#centralWidget { background-color: %1; border: 1.5px solid %2; border-radius: %3px; }")
+               "#centralWidget { background-color: %1; border: 1px solid %2; border-radius: %3px; }")
                .arg(stripColor)
                .arg(palette.border)
                .arg(stripBorderRadius) +
@@ -217,6 +219,76 @@ QString normalizeTextForClipboardSignature(QString text)
     return text.trimmed();
 }
 
+QString buildMultilineTextPreview(QString text,
+                                  const QFontMetrics &fontMetrics,
+                                  const QFont &font,
+                                  int maxWidth,
+                                  int maxLines)
+{
+    text.replace(QStringLiteral("\r\n"), QStringLiteral("\n"));
+    text.replace(QLatin1Char('\r'), QLatin1Char('\n'));
+
+    if (text.isEmpty() || maxWidth <= 0 || maxLines <= 0) {
+        return QString();
+    }
+
+    QStringList wrappedLines;
+    bool truncated = false;
+    const QStringList paragraphs = text.split(QLatin1Char('\n'));
+
+    for (int i = 0; i < paragraphs.size(); ++i) {
+        const QString paragraph = paragraphs.at(i);
+        if (paragraph.isEmpty()) {
+            if (wrappedLines.size() < maxLines) {
+                wrappedLines.append(QString());
+                continue;
+            }
+            truncated = true;
+            break;
+        }
+
+        QTextLayout textLayout(paragraph, font);
+        textLayout.beginLayout();
+        while (true) {
+            QTextLine line = textLayout.createLine();
+            if (!line.isValid()) {
+                break;
+            }
+
+            line.setLineWidth(maxWidth);
+            const QString segment = paragraph.mid(line.textStart(), line.textLength());
+            if (wrappedLines.size() < maxLines) {
+                wrappedLines.append(segment);
+            } else {
+                truncated = true;
+                break;
+            }
+        }
+        textLayout.endLayout();
+
+        if (truncated) {
+            break;
+        }
+
+        if (i < paragraphs.size() - 1 && wrappedLines.size() >= maxLines) {
+            truncated = true;
+            break;
+        }
+    }
+
+    if (wrappedLines.isEmpty()) {
+        return QString();
+    }
+
+    if (truncated) {
+        wrappedLines.last() = fontMetrics.elidedText(wrappedLines.last() + QStringLiteral(" ..."),
+                                                     Qt::ElideRight,
+                                                     maxWidth);
+    }
+
+    return wrappedLines.join(QLatin1Char('\n'));
+}
+
 QString clipboardSignatureForPixmap(const QPixmap &pixmap)
 {
     if (pixmap.isNull()) {
@@ -235,6 +307,21 @@ QString clipboardSignatureForPixmap(const QPixmap &pixmap)
         .arg(QString::fromLatin1(hash.result().toHex()))
         .arg(image.width())
         .arg(image.height());
+}
+
+void resetTopActionButtonVisual(QToolButton *button)
+{
+    if (!button) {
+        return;
+    }
+
+    button->setDown(false);
+    button->clearFocus();
+
+    QEvent leaveEvent(QEvent::Leave);
+    QApplication::sendEvent(button, &leaveEvent);
+
+    button->update();
 }
 } // namespace
 
@@ -269,6 +356,8 @@ MainWindow::MainWindow(QWidget *parent)
             settings.value(AppSettings::kSidebarPinned, AppSettings::kDefaultSidebarPinned).toBool();
         themeMode = normalizeThemeModeValue(
             settings.value(AppSettings::kThemeMode, AppSettings::kDefaultThemeMode).toString());
+        dockStripTop =
+            settings.value(AppSettings::kDockStripTop, AppSettings::kDefaultDockStripTop).toInt();
     }
     
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
@@ -295,6 +384,9 @@ MainWindow::MainWindow(QWidget *parent)
     connect(animation, &QPropertyAnimation::finished, this, [this]() {
         setDockContentVisible(!isDocked);
         updateDockMask();
+        if (!isDocked) {
+            relayoutHistoryItems();
+        }
     });
     
     hoverRevealTimer = new QTimer(this);
@@ -343,6 +435,8 @@ MainWindow::~MainWindow() {}
 void MainWindow::showEvent(QShowEvent *event)
 {
     QMainWindow::showEvent(event);
+
+    relayoutHistoryItems();
 
     if (!startupHoldApplied && !shouldSuppressSidebar()) {
         startupHoldApplied = true;
@@ -462,11 +556,6 @@ void MainWindow::setupUI()
     historyDivider->setFixedSize(182, 3);
     mainLayout->addWidget(historyDivider, 0, Qt::AlignHCenter);
     mainLayout->addSpacing(4);
-
-    QLabel *titleLabel = new QLabel(QStringLiteral("\u526a\u8d34\u677f"), this);
-    titleLabel->setObjectName("historyTitleLabel");
-    titleLabel->setAlignment(Qt::AlignCenter);
-    mainLayout->addWidget(titleLabel);
 
     historyList = new QListWidget(this);
     historyList->setContextMenuPolicy(Qt::CustomContextMenu); 
@@ -602,10 +691,12 @@ void MainWindow::onClipboardChanged()
 
 void MainWindow::addClipboardItem(const QVariant &data)
 {
-    constexpr int kTextPreviewChars = 180;
     const int viewportWidth =
-        (historyList && historyList->viewport()) ? historyList->viewport()->width() : (normalWidth - 24);
-    const int itemWidth = qMax(160, viewportWidth - 4);
+        (historyList && historyList->viewport()) ? historyList->viewport()->width() : 0;
+    const int listWidth = historyList ? historyList->width() : normalWidth;
+    const int resolvedListWidth = qMax(160, qMax(viewportWidth, listWidth));
+    const int itemWidth = qMax(160, resolvedListWidth - 12);
+    const int contentWidth = qMax(120, itemWidth - 16);
 
     QListWidgetItem *item = new QListWidgetItem();
     item->setData(Qt::UserRole, data); 
@@ -622,7 +713,16 @@ void MainWindow::addClipboardItem(const QVariant &data)
     timeLabel->setObjectName("historyTimeLabel");
     timeLabel->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
     timeLabel->setAlignment(Qt::AlignCenter);
+    const AppSettings::ThemePalette palette =
+        isLightTheme() ? AppSettings::getLightThemePalette() : AppSettings::getDarkThemePalette();
+    timeLabel->setStyleSheet(
+        QStringLiteral("background-color: %1; color: %2; border: 1px solid %3; border-radius: 7px; padding: 3px 8px;"
+                       "font-family: 'Microsoft YaHei'; font-weight: 700; font-size: 11px;")
+            .arg(palette.background, palette.text, palette.buttonHover));
     layout->addWidget(timeLabel);
+
+    bool isTextItem = false;
+    int textBlockHeight = 0;
 
     if (data.typeId() == QMetaType::QPixmap || data.typeId() == QMetaType::Type::QPixmap) {
         layout->setContentsMargins(3, 3, 3, 3);
@@ -638,14 +738,43 @@ void MainWindow::addClipboardItem(const QVariant &data)
         imgLabel->setPixmap(preview);
         layout->addWidget(imgLabel);
     } else {
-        QString text = data.toString();
-        QLabel *textLabel = new QLabel(text.left(40).replace('\n', " ") + (text.length() > 40 ? "..." : ""));
+        isTextItem = true;
+        const int previewWidth = contentWidth;
+        QLabel *textLabel = new QLabel();
         textLabel->setObjectName("historyTextLabel");
+        textLabel->setWordWrap(true);
+        textLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+        textLabel->setFixedWidth(contentWidth);
+        textLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        QFont textFont(QStringLiteral("\u5B8B\u4F53"), 12);
+        textFont.setStyleStrategy(QFont::PreferAntialias);
+        textLabel->setFont(textFont);
+        const QString textColor = isLightTheme() ? QStringLiteral("#2D2D2D") : QStringLiteral("#E8E8E8");
+        textLabel->setStyleSheet(QStringLiteral("color: %1;").arg(textColor));
+        textLabel->setText(
+            buildMultilineTextPreview(data.toString(), textLabel->fontMetrics(), textLabel->font(), previewWidth, 4));
+        const int lineHeight = textLabel->fontMetrics().lineSpacing();
+        const int maxTextHeight = (lineHeight * 4) + 6;
+        textBlockHeight = maxTextHeight;
+        textLabel->setMinimumHeight(lineHeight);
+        textLabel->setFixedHeight(maxTextHeight);
         layout->addWidget(textLabel);
     }
-    item->setSizeHint(QSize(itemWidth, qMax(72, widget->sizeHint().height() + 2)));
+
+    int finalItemHeight = qMax(72, layout->sizeHint().height() + 4);
+    if (isTextItem) {
+        finalItemHeight = qMax(finalItemHeight, textBlockHeight + 34);
+    }
+
+    item->setSizeHint(QSize(itemWidth, finalItemHeight));
     historyList->setItemWidget(item, widget);
     enforceHistoryLimit();
+
+    // Two-phase relayout: immediate queued pass + delayed pass after geometry settles.
+    QTimer::singleShot(0, this, [this]() { relayoutHistoryItems(); });
+    QTimer::singleShot(AppSettings::kSidebarAnimationDurationMs + 30,
+                       this,
+                       [this]() { relayoutHistoryItems(); });
 }
 
 void MainWindow::enterEvent(QEnterEvent *event) {
@@ -733,6 +862,7 @@ void MainWindow::mouseReleaseEvent(QMouseEvent *event)
 {
     if (dockDragging && event && event->button() == Qt::LeftButton) {
         dockDragging = false;
+        saveDockStripTop(dockStripTop);
         event->accept();
         return;
     }
@@ -832,6 +962,12 @@ void MainWindow::onOpenSettings()
     if (tray) {
         tray->openSettingsDialog();
     }
+
+    resetTopActionButtonVisual(githubButton);
+    resetTopActionButtonVisual(themeToggleButton);
+    resetTopActionButtonVisual(pinButton);
+    resetTopActionButtonVisual(settingsButton);
+    resetTopActionButtonVisual(exitButton);
 }
 
 void MainWindow::onOpenGitHub()
@@ -971,6 +1107,7 @@ void MainWindow::revealSidebarWithHold()
     if (centralWidget && centralWidget->graphicsEffect()) {
         centralWidget->graphicsEffect()->setEnabled(true);
     }
+    relayoutHistoryItems();
     updateDockMask();
 
     trayRevealHoldActive = !sidebarPinned;
@@ -1016,15 +1153,9 @@ void MainWindow::updateDockMask()
         return;
     }
 
-    const QSettings settings = AppSettings::createSettings();
-    const int configuredRadius =
-        settings.value(AppSettings::kDockStripBorderRadius, AppSettings::kDefaultDockStripBorderRadius)
-            .toInt();
-    const int safeRadius = qBound(0, configuredRadius, qMin(width(), height()) / 2);
-
-    QPainterPath path;
-    path.addRoundedRect(QRectF(0, 0, width(), height()), safeRadius, safeRadius);
-    setMask(QRegion(path.toFillPolygon().toPolygon()));
+    // QRegion mask is binary and causes visible jagged edges on narrow rounded strips.
+    // Keep the top-level window unmasked and rely on stylesheet rounded corners instead.
+    clearMask();
 }
 
 void MainWindow::dockSidebar(bool animated)
@@ -1081,6 +1212,7 @@ void MainWindow::dockSidebar(bool animated)
     }
     setGeometry(targetRect);
     dockStripTop = targetRect.top();
+    saveDockStripTop(dockStripTop);
     isDocked = true;
     setDockContentVisible(false);
     if (centralWidget && centralWidget->graphicsEffect()) {
@@ -1137,6 +1269,7 @@ void MainWindow::expandSidebar(bool force)
         if (centralWidget && centralWidget->graphicsEffect()) {
             centralWidget->graphicsEffect()->setEnabled(true);
         }
+        relayoutHistoryItems();
         return;
     }
 
@@ -1147,6 +1280,7 @@ void MainWindow::expandSidebar(bool force)
         if (centralWidget && centralWidget->graphicsEffect()) {
             centralWidget->graphicsEffect()->setEnabled(true);
         }
+        relayoutHistoryItems();
         return;
     }
 
@@ -1208,6 +1342,7 @@ void MainWindow::applyTheme()
     themeMode = normalizeThemeModeValue(themeMode);
     updateTopBarIcons();
     updateThemeToggleUi();
+    refreshHistoryItemsTextColor();
 
     if (!centralWidget) {
         return;
@@ -1228,6 +1363,8 @@ void MainWindow::applyTheme()
     } else {
         centralWidget->setStyleSheet(expandedPanelStyleSheet(palette));
     }
+
+    relayoutHistoryItems();
 }
 
 void MainWindow::updateTopBarIcons()
@@ -1255,6 +1392,115 @@ void MainWindow::updateTopBarIcons()
 bool MainWindow::isLightTheme() const
 {
     return currentThemeMode() == QStringLiteral("light");
+}
+
+void MainWindow::refreshHistoryItemsTextColor()
+{
+    if (!historyList || !historyList->viewport()) {
+        return;
+    }
+
+    const AppSettings::ThemePalette palette =
+        isLightTheme() ? AppSettings::getLightThemePalette() : AppSettings::getDarkThemePalette();
+    const QString textColor = isLightTheme() ? QStringLiteral("#2D2D2D") : QStringLiteral("#E8E8E8");
+    const QString timeLabelStyle =
+        QStringLiteral("background-color: %1; color: %2; border: 1px solid %3; border-radius: 7px; padding: 3px 8px;"
+                       "font-family: 'Microsoft YaHei'; font-weight: 700; font-size: 11px;")
+            .arg(palette.background, palette.text, palette.buttonHover);
+
+    const int viewportWidth = historyList->viewport()->width();
+    const int listWidth = historyList->width();
+
+    for (int i = 0; i < historyList->count(); ++i) {
+        QListWidgetItem *item = historyList->item(i);
+        if (!item) {
+            continue;
+        }
+
+        QWidget *widget = historyList->itemWidget(item);
+        if (!widget) {
+            continue;
+        }
+
+        QLabel *timeLabel = widget->findChild<QLabel *>(QStringLiteral("historyTimeLabel"));
+        if (timeLabel) {
+            timeLabel->setStyleSheet(timeLabelStyle);
+        }
+
+        QLabel *textLabel = widget->findChild<QLabel *>(QStringLiteral("historyTextLabel"));
+        if (textLabel) {
+            QFont textFont(QStringLiteral("\u5B8B\u4F53"), 12);
+            textFont.setStyleStrategy(QFont::PreferAntialias);
+            textLabel->setFont(textFont);
+            textLabel->setStyleSheet(QStringLiteral("color: %1;").arg(textColor));
+        }
+    }
+    historyList->viewport()->update();
+}
+
+void MainWindow::relayoutHistoryItems()
+{
+    if (!historyList || !historyList->viewport()) {
+        return;
+    }
+
+    const int viewportWidth = historyList->viewport()->width();
+    const int listWidth = historyList->width();
+    const int resolvedListWidth = qMax(160, qMax(viewportWidth, listWidth));
+    const int itemWidth = qMax(160, resolvedListWidth - 12);
+    const int contentWidth = qMax(120, itemWidth - 16);
+
+    for (int i = 0; i < historyList->count(); ++i) {
+        QListWidgetItem *item = historyList->item(i);
+        if (!item) {
+            continue;
+        }
+
+        QWidget *widget = historyList->itemWidget(item);
+        if (!widget) {
+            continue;
+        }
+
+        QLabel *textLabel = widget->findChild<QLabel *>(QStringLiteral("historyTextLabel"));
+        if (textLabel) {
+            textLabel->setFixedWidth(contentWidth);
+            const QString textData = item->data(Qt::UserRole).toString();
+            textLabel->setText(buildMultilineTextPreview(textData,
+                                                         textLabel->fontMetrics(),
+                                                         textLabel->font(),
+                                                         contentWidth,
+                                                         4));
+
+            const int lineHeight = textLabel->fontMetrics().lineSpacing();
+            const int maxTextHeight = (lineHeight * 4) + 6;
+            textLabel->setFixedHeight(maxTextHeight);
+
+            const int finalItemHeight = qMax(72, qMax(widget->sizeHint().height() + 4, maxTextHeight + 34));
+            item->setSizeHint(QSize(itemWidth, finalItemHeight));
+        } else {
+            item->setSizeHint(QSize(itemWidth, qMax(72, widget->sizeHint().height() + 4)));
+        }
+    }
+
+    historyList->doItemsLayout();
+    historyList->viewport()->update();
+}
+
+void MainWindow::saveDockStripTop(int top)
+{
+    if (top < 0) {
+        return;
+    }
+
+    QSettings settings = AppSettings::createSettings();
+    settings.setValue(AppSettings::kDockStripTop, top);
+    settings.sync();
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event)
+{
+    QMainWindow::resizeEvent(event);
+    relayoutHistoryItems();
 }
 
 void MainWindow::updateThemeToggleUi()

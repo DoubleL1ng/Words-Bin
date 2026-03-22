@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(WordsBin LANGUAGES CXX)
+project(Silo LANGUAGES CXX)
 
 if(WIN32)
     enable_language(RC)
@@ -16,7 +16,7 @@ set(CMAKE_AUTOUIC ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Gui Svg)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Gui Svg)
 
-add_executable(WordsBin
+add_executable(Silo
     main.cpp
     AppSettings.h
     MainWindow.cpp
@@ -31,18 +31,16 @@ add_executable(WordsBin
 )
 
 if(WIN32)
-    target_sources(WordsBin PRIVATE app_icon.rc)
+    target_sources(Silo PRIVATE app_icon.rc)
 endif()
 
-target_link_libraries(WordsBin PRIVATE
+target_link_libraries(Silo PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
     Qt${QT_VERSION_MAJOR}::Gui
     Qt${QT_VERSION_MAJOR}::Svg
     dwmapi
 )
 
-set_target_properties(WordsBin PROPERTIES OUTPUT_NAME "Silo")
-
 if(WIN32)
-    set_target_properties(WordsBin PROPERTIES WIN32_EXECUTABLE TRUE)
+    set_target_properties(Silo PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()

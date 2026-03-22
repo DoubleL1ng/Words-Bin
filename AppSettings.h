@@ -7,10 +7,6 @@
 #include <QtGlobal>
 
 namespace AppSettings {
-inline const QString kLegacyOrganization = QStringLiteral("Words-Bin");
-inline const QString kLegacyApplication = QStringLiteral("Words-Bin");
-inline const QString kLegacyOrganizationSecondary = QStringLiteral("SnipLite");
-inline const QString kLegacyApplicationSecondary = QStringLiteral("SnipLite");
 inline const QString kOrganization = QStringLiteral("Silo");
 inline const QString kApplication = QStringLiteral("Silo");
 
@@ -23,6 +19,8 @@ inline const QString kSidebarPinned = QStringLiteral("sidebar/pinned");
 inline const QString kDockStripWidth = QStringLiteral("dock/stripWidth");
 inline const QString kDockStripHeight = QStringLiteral("dock/stripHeight");
 inline const QString kDockStripBorderRadius = QStringLiteral("dock/stripBorderRadius");
+inline const QString kDockStripAllowDrag = QStringLiteral("dock/allowDrag");
+inline const QString kDockStripTop = QStringLiteral("dock/stripTop");
 inline const QString kThemeMode = QStringLiteral("ui/themeMode");
 inline const QString kGitHubUrl = QStringLiteral("https://github.com/DoubleL1ng/Silo");
 
@@ -39,6 +37,8 @@ inline constexpr int kSidebarRightMargin = 20;
 inline constexpr int kDefaultDockStripWidth = 6;
 inline constexpr int kDefaultDockStripHeight = 84;
 inline constexpr int kDefaultDockStripBorderRadius = 3;
+inline constexpr bool kDefaultDockStripAllowDrag = true;
+inline constexpr int kDefaultDockStripTop = -1;
 inline constexpr int kMinDockStripWidth = 4;
 inline constexpr int kMaxDockStripWidth = 20;
 inline constexpr int kMinDockStripHeight = 40;
@@ -53,40 +53,8 @@ inline constexpr int kSidebarExpandDebounceMs = 250;
 inline constexpr int kTrayRevealHoldMs = 3000;
 inline constexpr int kPreCaptureDelayMs = 60;
 
-inline void migrateLegacySettingsIfNeeded()
-{
-    static bool migrated = false;
-    if (migrated) {
-        return;
-    }
-    migrated = true;
-
-    QSettings currentSettings(kOrganization, kApplication);
-    if (!currentSettings.allKeys().isEmpty()) {
-        return;
-    }
-
-    QSettings legacySettings(kLegacyOrganization, kLegacyApplication);
-    QStringList legacyKeys = legacySettings.allKeys();
-
-    if (legacyKeys.isEmpty()) {
-        QSettings secondaryLegacySettings(kLegacyOrganizationSecondary, kLegacyApplicationSecondary);
-        legacyKeys = secondaryLegacySettings.allKeys();
-        for (const QString &key : legacyKeys) {
-            currentSettings.setValue(key, secondaryLegacySettings.value(key));
-        }
-    } else {
-        for (const QString &key : legacyKeys) {
-            currentSettings.setValue(key, legacySettings.value(key));
-        }
-    }
-
-    currentSettings.sync();
-}
-
 inline QSettings createSettings()
 {
-    migrateLegacySettingsIfNeeded();
     return QSettings(kOrganization, kApplication);
 }
 

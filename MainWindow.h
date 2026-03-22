@@ -5,6 +5,7 @@
 #include <QPropertyAnimation>
 #include <QEnterEvent>
 #include <QMouseEvent>
+#include <QResizeEvent>
 #include <QShowEvent>
 #include <QVBoxLayout>
 #include <QPushButton>
@@ -25,6 +26,7 @@ public:
 
 protected:
     void showEvent(QShowEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
     void enterEvent(QEnterEvent *event) override;
     void leaveEvent(QEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
@@ -67,6 +69,9 @@ private:
     void updatePinnedUi();
     void applySuppressionState();
     void onToggleTheme();
+    void refreshHistoryItemsTextColor();
+    void relayoutHistoryItems();
+    void saveDockStripTop(int top);
     
     TrayIcon *tray; 
     CaptureTool *captureTool;
